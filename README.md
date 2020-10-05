@@ -6,3 +6,4 @@ Group Members: Terrence Connelly, Samuel Mori, Ryan Bacastow
 https://fred.stlouisfed.org/series/WALCL
 
 # Architecture
+![](./fed_watch.png)
