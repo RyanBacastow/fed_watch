@@ -30,11 +30,6 @@ def publish_message_sns(message):
 
 
 def get_data():
-    """
-    :param tickers: str: stock ticker string
-    :param period: str: valid date period for comparison
-    :return: temp_string, delta: str, float: stock printing statements and ratio are returned
-    """
     start = env['START_DATE']
     cols = ['Fed BS', 'ECB BS', 'EURUSD', 'SPX']
     df = pdr.DataReader(['WALCL', 'ECBASSETSW', 'DEXUSEU', 'SP500'], 'fred', start)
