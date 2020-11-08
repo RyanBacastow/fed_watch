@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 
-
+.ipynb_checkpoints
 .idea/
 .DS_Store
 __pycache__/
