@@ -1,5 +1,5 @@
 pandas-datareader
 pandas
 numpy
-textwrap
+textwrap3
 matplotlib

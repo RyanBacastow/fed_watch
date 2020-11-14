@@ -29,10 +29,13 @@ else
 endif
 
 deploy: build
+	aws s3 cp --profile personal $(ZIP_FILE) s3://fed-watch-bucket/latest_deployment_packages/
+
 	aws lambda update-function-code \
-		--profile $(AWS_PROFILE) \
+		--profile personal \
 		--function-name fed_watch \
-		--zip-file fileb://$(ZIP_FILE)
+		--s3-bucket fed-watch-bucket \
+		--s3-key latest_deployment_packages/$(ZIP_FILE)
 
 clean:
 	find . -name .pytest_cache -type d -print0 | xargs -0 rm -r --
