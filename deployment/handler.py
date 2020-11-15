@@ -148,40 +148,28 @@ def model(df):
     """Intakes df, returns str"""
     # TODO: TJ's logic here
     global sep
-    out_str = """"""
     SPX_with_BSGrowth = df[df['BS 12wk %Chg'] > 0]['SPX 1wk % chg'].shift()
-    out_str += '\nMean when CBs Expanding: ' + "{:.2%}".format(SPX_with_BSGrowth.mean())
-    out_str += '\nBest Week: ' + "{:.2%}".format(SPX_with_BSGrowth.max())
-    out_str += '\nWorst Week: ' + "{:.2%}".format(SPX_with_BSGrowth.min())
-
-    out_str += sep
-
     SPX_with_BSContraction = df[df['BS 12wk %Chg'] < 0]['SPX 1wk % chg'].shift()
 
-    out_str += 'Mean when CBs Contracting: ' + "{:.2%}".format(SPX_with_BSContraction.mean())
-    out_str += '\nBest Week: ' + "{:.2%}".format(SPX_with_BSContraction.max())
-    out_str += '\nWorst Week: ' + "{:.2%}".format(SPX_with_BSContraction.min())
+    out_str = f"""
+    <h5>Rising Liquidity Stats</h5>
+    <ul>
+    <li>Mean when CBs Expanding: {SPX_with_BSGrowth.mean():.2%}</li>
+    <li>Best Week: {SPX_with_BSGrowth.max():.2f}</li>
+    <li>Worst Week: {SPX_with_BSGrowth.min():.2%}</li>
+    </ul>
+    
+    <br>
+
+    <h5>Contracting Liquidity Stats</h5>
+    <ul>
+    <li>Mean when CBs Contracting: {SPX_with_BSContraction.mean():.2%}</li>
+    <li>Best Week: {SPX_with_BSContraction.max():.2f}</li>
+    <li>Worst Week: {SPX_with_BSContraction.min():.2%}</li>
+    </ul>
+    """
 
     return out_str
-
-
-def create_html_message(html_text, img_url):
-    body = f"""<html>
-    <head></head>
-    <body>
-      <h1>FED WATCH</h1>
-
-      {html_text}
-      
-      <img src="{img_url}" width=100%>
-      <br>
-      <img src="s3://fed-watch-bucket/fed_watch_logo.png" width=100%>
-      <br>
-
-    </body>
-    </html>
-    """
-    return body
 
 
 def email_parse():
@@ -216,87 +204,87 @@ def publish_message_ses(message, img_url):
     Takes a list of emails and publishes and ses message to them.
     """
 
-    for email in email_parse():
+    SENDER = env['SENDER_EMAIL']
 
-        SENDER = "FedWatch <FedWatch@gmail.com>"
+    # RECIPIENT = email
 
-        RECIPIENT = email
+    # Set the AWS Region you're using for Amazon SES.
+    AWS_REGION = "us-east-1"
 
-        # Set the AWS Region you're using for Amazon SES.
-        AWS_REGION = "us-east-1"
+    # The subject line for the email.
+    SUBJECT = "FED WATCH"
 
-        # The subject line for the email.
-        SUBJECT = "FED WATCH"
+    # The email body for recipients with non-HTML email clients.
+    BODY_TEXT = f"""
+                \nFED WATCH CENTRAL BANK ANALYSIS\n
+                \nFedwatch helps you monitor how central bank liquidty is affecting the macro economic environment.\n
+                {message.replace("<br>", os.linesep).replace("<ul>","").replace("<li>","").replace("<h5>","")}
+                """
 
+    # The HTML body of the email.
 
+    BODY_HTML = f"""<html>
+                    <head></head>
+                    <body>
+                      <br>
+                      <img src="{env['LOGO_URL']}" width=50%>
+                      <br>
+                      <h2>FED WATCH CENTRAL BANK ANALYSIS</h2>
+                      <h5>Fedwatch helps you monitor how central bank liquidty is affecting the macro economic environment.</h5>
+                      <br>
 
-        # The email body for recipients with non-HTML email clients.
-        BODY_TEXT = message
+                      {message}
+                      
+                      <img src="{img_url}" width=50%>
 
-        # The HTML body of the email.
-        BODY_HTML = f"""<html>
-                        <head></head>
-                        <body>
-                          <br>
-                          <img src="s3://fed-watch-bucket/fed_watch_logo.png" width=100%>
-                          <br>
-                          <h1>FED WATCH</h1>
-                    
-                          <p>{message}<p>
-                          
-                          <img src="{img_url}" width=100%>
+                      <br>
 
-                          <br>
+                      <p>Disclaimer: This email is not an offer, solicitation of an offer, or advice to buy or sell securities. All investments involve risk and the past performance of a security, or financial product does not guarantee future results or returns. There is always the potential of losing money when you invest in securities, or other financial products. The data and other information used in generating the FedWatch email is not warranted as to completeness or accuracy and are subject to change without notice. Don’t trade with money you can’t afford to lose. Before acting on information in this email, you should consider whether it is suitable for your particular circumstances and strongly consider seeking advice from your own financial or investment adviser.</p>
+                
+                    </body>
+                    </html>
+                    """
 
-                          <p>'Disclaimer: This email is not an offer, solicitation of an offer, or advice to buy or sell securities. All investments involve risk and the past performance of a security, or financial product does not guarantee future results or returns. There is always the potential of losing money when you invest in securities, or other financial products. The data and other information used in generating the QuadrantSignal email is not warranted as to completeness or accuracy and are subject to change without notice. Don’t trade with money you can’t afford to lose. Before acting on information in this email, you should consider whether it is suitable for your particular circumstances and strongly consider seeking advice from your own financial or investment adviser.\n\n'</p>
-                    
-                        </body>
-                        </html>
-                        """
+    print(BODY_HTML)
 
-        # The character encoding for the email.
-        CHARSET = "UTF-8"
+    # The character encoding for the email.
+    CHARSET = "UTF-8"
 
-        """
-        :param message: str: message to be sent to SES
-        :return: None
-        """
+    client = boto3.client('ses', region_name=AWS_REGION)
 
-        client = boto3.client('ses', region_name=AWS_REGION)
-
-        # Try to send the email.
-        try:
-            # Provide the contents of the email.
-            response = client.send_email(
-                Destination={
-                    'ToAddresses': RECIPIENT,
-                },
-                Message={
-                    'Body': {
-                        'Html': {
-                            'Charset': CHARSET,
-                            'Data': BODY_HTML,
-                        },
-                        'Text': {
-                            'Charset': CHARSET,
-                            'Data': BODY_TEXT,
-                        },
-                    },
-                    'Subject': {
+    # Try to send the email.
+    try:
+        # Provide the contents of the email.
+        response = client.send_email(
+            Destination={
+                'ToAddresses': email_parse(),
+            },
+            Message={
+                'Body': {
+                    'Html': {
                         'Charset': CHARSET,
-                        'Data': SUBJECT,
+                        'Data': BODY_HTML,
+                    },
+                    'Text': {
+                        'Charset': CHARSET,
+                        'Data': BODY_TEXT,
                     },
                 },
-                Source=SENDER,
-                # If you are not using a configuration set, comment or delete the following line
-                # ConfigurationSetName=CONFIGURATION_SET,
-            )
-        # Display an error if something goes wrong.
-        except ClientError as e:
-            print(e.response['Error']['Message'])
-        else:
-            print("Email sent! Message ID:"),
-            print(response['MessageId'])
+                'Subject': {
+                    'Charset': CHARSET,
+                    'Data': SUBJECT,
+                },
+            },
+            Source=SENDER,
+            # If you are not using a configuration set, comment or delete the following line
+            # ConfigurationSetName=CONFIGURATION_SET,
+        )
+    # Display an error if something goes wrong.
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+    else:
+        print("Email sent! Message ID:"),
+        print(response['MessageId'])
 
 
 def handler(event, context):
@@ -304,14 +292,12 @@ def handler(event, context):
     This function drives the AWS lambda.
     """
     global sep
-    message = f"""{sep}FED WATCH CENTRAL BANK ANALYSIS{sep}"""
-    message += "Fedwatch helps you monitor how central bank liquidty is affecting the macro economic environment.\n"
 
     img_filename = create_filename("fed_watch_graph", "png")
 
     df = get_data()
 
-    message += model(df)
+    message = model(df)
 
     create_img(df['Tot BS'],
                df['SPX'],
@@ -323,8 +309,9 @@ def handler(event, context):
     img_url = s3_upload(img_filename, dir='imgs')
 
     if env['MODE'].lower() == 'sns':
-        publish_message_sns(message + "\nDisclaimer: This email is not an offer, solicitation of an offer, or advice to buy or sell securities. All investments involve risk and the past performance of a security, or financial product does not guarantee future results or returns. There is always the potential of losing money when you invest in securities, or other financial products. The data and other information used in generating the QuadrantSignal email is not warranted as to completeness or accuracy and are subject to change without notice. Don’t trade with money you can’t afford to lose. Before acting on information in this email, you should consider whether it is suitable for your particular circumstances and strongly consider seeking advice from your own financial or investment adviser.\n\n")
+        publish_message_sns(message)
     else:
+        message.replace(os.linesep, "<br>")
         publish_message_ses(message, img_url)
 
     return message
