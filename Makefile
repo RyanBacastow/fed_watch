@@ -4,6 +4,7 @@
 ZIP_FILE = deployment.zip
 
 build: clean build_deployment_dependencies
+	rm $(ZIP_FILE)
 	cd deployment; zip -r9 ../$(ZIP_FILE) . -x "tests/*" "schema/*" "pkgs/*"
 	cd deployment/pkgs; zip -ur9 ../../$(ZIP_FILE) .
 	rm -rf deployment/pkgs
@@ -15,6 +16,7 @@ build_deployment_dependencies:
 	docker rm -f dummy_container_1
 
 init:
+	rm $(ZIP_FILE)
 	pip3 install -r requirements.txt
 
 deploy_prod:

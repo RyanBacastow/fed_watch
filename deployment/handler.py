@@ -15,40 +15,25 @@ import matplotlib.ticker as mtick
 import matplotlib.dates as mdates
 from matplotlib.ticker import FuncFormatter
 from datetime import datetime
-
 import traceback
+from botocore.exceptions import ClientError
 
 sep = '\n--------------------------------------------------------------------------------------------\n'
 
-def publish_message_sns(message):
-    """
-    :param message: str: message to be sent to SNS
-    :return: None
-    """
-    sns_arn = env.get('SNS_ARN').strip()
-    sns_client = boto3.client('sns')
-    try:
-        response = sns_client.publish(
-            TopicArn=sns_arn,
-            Message=message
-        )
-
-    except Exception as e:
-        print(f"ERROR PUBLISHING MESSAGE TO SNS: {e}")
 
 def create_filename(title, ext):
     return f"{title}_{datetime.utcnow().strftime('%Y_%m_%d')}.{ext}"
+
 
 def s3_upload(filename, dir):
     """
     :param filename: str: outfile name
     """
-    b3 = boto3.client('s3')
-    s3 = b3.resource('s3')
+    s3 = boto3.resource('s3')
     bucket = s3.Bucket(env['BUCKET_NAME'])
 
     try:
-        bucket.upload_file(f"/tmp/{filename}", key=f"{dir}/{filename}", ExtraArgs={'ACL': 'public-read'})
+        bucket.upload_file(f"/tmp/{filename}", f"{dir}/{filename}", ExtraArgs={'ACL': 'public-read'})
         url = f"https://s3.amazonaws.com/{env['BUCKET_NAME']}/{dir}/{filename}"
         print(f"Successfully uploaded to {url}.")
         return url
@@ -56,6 +41,7 @@ def s3_upload(filename, dir):
         print(e)
         print(traceback.format_exc())
         return None
+
 
 def create_img(x, x2, title, FileName, IncMostRecent = False, TwoOnFirstPanel = False, TwoAxis = True, Color2 = '#c4bd97', Panel1x2 = '', title2 = '', label1 = '', label2 = '', label2forpanel1 = '', HandleDate = True, CMblue = '#17375E'):
 
@@ -138,6 +124,7 @@ def create_img(x, x2, title, FileName, IncMostRecent = False, TwoOnFirstPanel = 
     plt.tight_layout()
     plt.savefig(f"/tmp/{FileName}")
 
+
 def get_data():
     start = env['START_DATE']
     cols = ['Fed BS', 'ECB BS', 'EURUSD', 'SPX']
@@ -147,28 +134,184 @@ def get_data():
     df = df.resample('W').last()
     df = df.fillna(method='ffill')
     df = df.dropna()
-
     df['ECB in USD'] = df['ECB BS'] * df['EURUSD']
     df['Tot BS'] = df['ECB in USD'] + df['Fed BS']
-    df['BS %Chg'] = df['Tot BS'].pct_change(12)
-    df['SPX % chg'] = df['SPX'].pct_change(12)
+    df['BS 12wk %Chg'] = df['Tot BS'].pct_change(12)
+    df['SPX 12wk % chg'] = df['SPX'].pct_change(12)
+    df['BS 1wk %Chg'] = df['Tot BS'].pct_change(1)
+    df['SPX 1wk % chg'] = df['SPX'].pct_change(1)
 
     return df
 
-def model():
-    pass
+
+def model(df):
+    """Intakes df, returns str"""
+    # TODO: TJ's logic here
+    global sep
+    out_str = """"""
+    SPX_with_BSGrowth = df[df['BS 12wk %Chg'] > 0]['SPX 1wk % chg'].shift()
+    out_str += '\nMean when CBs Expanding: ' + "{:.2%}".format(SPX_with_BSGrowth.mean())
+    out_str += '\nBest Week: ' + "{:.2%}".format(SPX_with_BSGrowth.max())
+    out_str += '\nWorst Week: ' + "{:.2%}".format(SPX_with_BSGrowth.min())
+
+    out_str += sep
+
+    SPX_with_BSContraction = df[df['BS 12wk %Chg'] < 0]['SPX 1wk % chg'].shift()
+
+    out_str += 'Mean when CBs Contracting: ' + "{:.2%}".format(SPX_with_BSContraction.mean())
+    out_str += '\nBest Week: ' + "{:.2%}".format(SPX_with_BSContraction.max())
+    out_str += '\nWorst Week: ' + "{:.2%}".format(SPX_with_BSContraction.min())
+
+    return out_str
+
+
+def create_html_message(html_text, img_url):
+    body = f"""<html>
+    <head></head>
+    <body>
+      <h1>FED WATCH</h1>
+
+      {html_text}
+      
+      <img src="{img_url}" width=100%>
+      <br>
+      <img src="s3://fed-watch-bucket/fed_watch_logo.png" width=100%>
+      <br>
+
+    </body>
+    </html>
+    """
+    return body
+
+
+def email_parse():
+    """
+    This stores emails in a list from the string input we get from the emails var.
+    Can be replaced by a database as an enhancement.
+    :return:  list: emails
+    """
+    email_list = [email.strip() for email in env['EMAILS'].split(",")]
+    return email_list
+
+
+def publish_message_sns(message):
+    """
+    :param message: str: message to be sent to SNS
+    :return: None
+    """
+    sns_arn = env.get('SNS_ARN').strip()
+    sns_client = boto3.client('sns')
+    try:
+        response = sns_client.publish(
+            TopicArn=sns_arn,
+            Message=message
+        )
+
+    except Exception as e:
+        print(f"ERROR PUBLISHING MESSAGE TO SNS: {e}")
+
+
+def publish_message_ses(message, img_url):
+    """
+    Takes a list of emails and publishes and ses message to them.
+    """
+
+    for email in email_parse():
+
+        SENDER = "FedWatch <FedWatch@gmail.com>"
+
+        RECIPIENT = email
+
+        # Set the AWS Region you're using for Amazon SES.
+        AWS_REGION = "us-east-1"
+
+        # The subject line for the email.
+        SUBJECT = "FED WATCH"
+
+
+
+        # The email body for recipients with non-HTML email clients.
+        BODY_TEXT = message
+
+        # The HTML body of the email.
+        BODY_HTML = f"""<html>
+                        <head></head>
+                        <body>
+                          <br>
+                          <img src="s3://fed-watch-bucket/fed_watch_logo.png" width=100%>
+                          <br>
+                          <h1>FED WATCH</h1>
+                    
+                          <p>{message}<p>
+                          
+                          <img src="{img_url}" width=100%>
+
+                          <br>
+
+                          <p>'Disclaimer: This email is not an offer, solicitation of an offer, or advice to buy or sell securities. All investments involve risk and the past performance of a security, or financial product does not guarantee future results or returns. There is always the potential of losing money when you invest in securities, or other financial products. The data and other information used in generating the QuadrantSignal email is not warranted as to completeness or accuracy and are subject to change without notice. Don’t trade with money you can’t afford to lose. Before acting on information in this email, you should consider whether it is suitable for your particular circumstances and strongly consider seeking advice from your own financial or investment adviser.\n\n'</p>
+                    
+                        </body>
+                        </html>
+                        """
+
+        # The character encoding for the email.
+        CHARSET = "UTF-8"
+
+        """
+        :param message: str: message to be sent to SES
+        :return: None
+        """
+
+        client = boto3.client('ses', region_name=AWS_REGION)
+
+        # Try to send the email.
+        try:
+            # Provide the contents of the email.
+            response = client.send_email(
+                Destination={
+                    'ToAddresses': RECIPIENT,
+                },
+                Message={
+                    'Body': {
+                        'Html': {
+                            'Charset': CHARSET,
+                            'Data': BODY_HTML,
+                        },
+                        'Text': {
+                            'Charset': CHARSET,
+                            'Data': BODY_TEXT,
+                        },
+                    },
+                    'Subject': {
+                        'Charset': CHARSET,
+                        'Data': SUBJECT,
+                    },
+                },
+                Source=SENDER,
+                # If you are not using a configuration set, comment or delete the following line
+                # ConfigurationSetName=CONFIGURATION_SET,
+            )
+        # Display an error if something goes wrong.
+        except ClientError as e:
+            print(e.response['Error']['Message'])
+        else:
+            print("Email sent! Message ID:"),
+            print(response['MessageId'])
 
 
 def handler(event, context):
     """
-    This function drives the AWS lambda. Requires 1 env var to work correctly: SNS_TOPIC which represents the topic arn to which
-    you want to publish.
+    This function drives the AWS lambda.
     """
     global sep
     message = f"""{sep}FED WATCH CENTRAL BANK ANALYSIS{sep}"""
+    message += "Fedwatch helps you monitor how central bank liquidty is affecting the macro economic environment.\n"
+
     img_filename = create_filename("fed_watch_graph", "png")
 
     df = get_data()
+
+    message += model(df)
 
     create_img(df['Tot BS'],
                df['SPX'],
@@ -177,9 +320,11 @@ def handler(event, context):
                title2='S&P 500',
                label1='Global liquidty in Trillions of USD')
 
-    url = s3_upload(img_filename, dir='imgs')
-    if url is not None:
-        message += f"{sep}{url}{sep}"
+    img_url = s3_upload(img_filename, dir='imgs')
 
-    publish_message_sns(message)
+    if env['MODE'].lower() == 'sns':
+        publish_message_sns(message + "\nDisclaimer: This email is not an offer, solicitation of an offer, or advice to buy or sell securities. All investments involve risk and the past performance of a security, or financial product does not guarantee future results or returns. There is always the potential of losing money when you invest in securities, or other financial products. The data and other information used in generating the QuadrantSignal email is not warranted as to completeness or accuracy and are subject to change without notice. Don’t trade with money you can’t afford to lose. Before acting on information in this email, you should consider whether it is suitable for your particular circumstances and strongly consider seeking advice from your own financial or investment adviser.\n\n")
+    else:
+        publish_message_ses(message, img_url)
+
     return message
