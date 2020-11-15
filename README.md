@@ -1,4 +1,4 @@
-# fed_watch
+# Fed Watch
 ![](./fed_watch_logo.png)
 
 This is part of the capstone project for the Northwestern University MSDS Program. 
