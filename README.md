@@ -18,4 +18,5 @@ https://fred.stlouisfed.org/series/WALCL
 ![](./fed_watch.png)
 
 # Example
+![](./model_copy.png)
 ![](./FedWatchEmailExample2.png)
