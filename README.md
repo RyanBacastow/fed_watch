@@ -8,6 +8,13 @@ Group Members: Terrence Connelly, Samuel Mori, Ryan Bacastow
 https://fred.stlouisfed.org/series/WALCL
 
 # Architecture
+![](./fed_watch_3.png)
+- Cloudwatch triggers lambda handler
+- Lambda pulls data and makes calculations
+- Lambda writes img output to s3
+- Lambda invokes SES message to user emails
+
+# Future Potential Architecture
 ![](./fed_watch.png)
 
 # Example

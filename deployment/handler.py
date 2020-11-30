@@ -17,6 +17,7 @@ from matplotlib.ticker import FuncFormatter
 from datetime import datetime
 import traceback
 from botocore.exceptions import ClientError
+import numpy as np
 
 sep = '\n--------------------------------------------------------------------------------------------\n'
 
@@ -162,12 +163,12 @@ def makeMASignals(df, PriceCol, MA1 = MA1, MA2 = MA2, NoPriceCol = True, LongOnl
     return(df)
 
 
-def GetLastSig(df, instrument = 'instrument', SigCol = 'MASig', ReturnDF = True):
+def GetLastSig(df, instrument='instrument', SigCol='MASig', ReturnDF=True):
     df1MA = df
     PriorSigDate = df1MA[df1MA[SigCol] != df1MA.iloc[-1][SigCol]].index[-1]
     PriorSig = df1MA[df1MA[SigCol] != df1MA.iloc[-1][SigCol]].iloc[-1][SigCol]
     LastSigChangeDate = df1MA.index[df1MA.index.get_loc(PriorSigDate) + 1]
-    SigText1 = "The Current signal suggests to be " + "{:.2%}".format(df1MA.iloc[-1][SigCol]) + " invested."
+    SigText1 = "The current signal suggests to be " + "{:.2%}".format(df1MA.iloc[-1][SigCol]) + " invested."
     SigChgText = SigText1 + ' The signal last changed on ' + LastSigChangeDate.strftime('%Y-%m-%d') + ' from ' + str(PriorSig) + "x."
     #print(SigChgText)
     if ReturnDF:
@@ -189,7 +190,7 @@ def model(df):
 
     merge_df = df.merge(df1, left_index=True, right_index=True)
 
-    merge_merge_df['logret'] = np.log(merge_df['SPX']) - np.log(merge_df['SPX'].shift(1))
+    merge_df['logret'] = np.log(merge_df['SPX']) - np.log(merge_df['SPX'].shift(1))
     merge_df['SPX_DD'] = merge_df['logret'].cumsum() - merge_df['logret'].cumsum().cummax()
     merge_df = merge_df.dropna()
     merge_df['NewSig'] = np.nan
@@ -209,19 +210,13 @@ def model(df):
         else:
             merge_df.at[merge_df.index[count], 'NewSig'] = 0
 
-    sigTextForUser = GetLastSig(df, 'SPX', SigCol='NewSig', ReturnDF=False)
+    sigTextForUser = GetLastSig(merge_df, 'SPX', SigCol='NewSig', ReturnDF=False)
 
 
-    print('Since ' + df.index[0].strftime("%m-%d-%Y") + ' the performance of the model is a cumuluative return of: ')
-    print("{:.0%}".format((df['logret'] * df['NewSig']).sum()) + ' with daily volatility of ' + "{:.0%}".format(
-        (df['logret'] * df['NewSig']).std()))
-    print('This compared to simply owning the S&P 500 with a return of:')
-    print("{:.0%}".format((df['logret']).sum()) + ' with daily volatility of ' + "{:.0%}".format((df['logret']).std()))
-
-    cum_perf_str = f"Since {merge_df.index[0].strftime('%m-%d-%Y')} the performance of the model is a cumuluative return of: {(merge_df['logret'] * merge_df['NewSig']).sum():.0 %} with daily volatility of {(merge_df['logret'] * merge_df['NewSig']).std():.0%}"
+    cum_perf_str = f"Since {merge_df.index[0].strftime('%m-%d-%Y')} the performance of the model is a cumuluative return of {(merge_df['logret'] * merge_df['NewSig']).sum():.0%} with daily volatility of {(merge_df['logret'] * merge_df['NewSig']).std():.0%}"
 
     out_str = f"""
-    <h3>Fed watch signal</h3>
+    <h3>Fed Watch Signal</h3>
     <h4>{sigTextForUser}</h4>
     <br>
     <h4>Model Performance</h4>
@@ -230,7 +225,7 @@ def model(df):
     <h5>Long Term Rising Liquidity Stats</h5>
     <ul>
     <li>Mean when CBs Expanding: {SPX_with_BSGrowth.mean():.2%}</li>
-    <li>Best Week: {SPX_with_BSGrowth.max():.2f}</li>
+    <li>Best Week: {SPX_with_BSGrowth.max():.2%}</li>
     <li>Worst Week: {SPX_with_BSGrowth.min():.2%}</li>
     </ul>
     
@@ -239,7 +234,7 @@ def model(df):
     <h5>Contracting Liquidity Stats</h5>
     <ul>
     <li>Mean when CBs Contracting: {SPX_with_BSContraction.mean():.2%}</li>
-    <li>Best Week: {SPX_with_BSContraction.max():.2f}</li>
+    <li>Best Week: {SPX_with_BSContraction.max():.2%}</li>
     <li>Worst Week: {SPX_with_BSContraction.min():.2%}</li>
     </ul>
     """
