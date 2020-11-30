@@ -17,6 +17,12 @@ https://fred.stlouisfed.org/series/WALCL
 # Future Potential Architecture
 ![](./fed_watch.png)
 
+# The Model
+Changes in central bank liquidity in US $ terms have been very important for asset price performance for many years.   
+This model uses US Federal Reserve, European Central Bank, foreign exchange rates and the S&P 500 stock market index to tell users when they should be fully invested, out of the stock market or even over-weight the stock market.  
+
+The model is theoretical only and not investment advice .
+
 # Example
 ![](./model_copy.png)
 ![](./FedWatchEmailExample2.png)
